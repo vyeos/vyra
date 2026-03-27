@@ -231,6 +231,10 @@ final class CommandPaletteViewModel: ObservableObject {
         workspace.activateFileViewerSelecting([URL(fileURLWithPath: macroStoragePath)])
     }
 
+    func allInstalledApplications() async -> [ApplicationSearchResult] {
+        await applicationIndex.allApplications()
+    }
+
     private func load() async {
         isLoading = true
         accessibilityStatusText = windowActionService.accessibilityStatusText()

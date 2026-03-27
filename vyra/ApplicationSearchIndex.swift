@@ -96,6 +96,21 @@ actor ApplicationSearchIndex {
         indexedApplications.count
     }
 
+    func allApplications() -> [ApplicationSearchResult] {
+        indexedApplications
+            .sorted { lhs, rhs in
+                lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            }
+            .map {
+                ApplicationSearchResult(
+                    url: $0.url,
+                    displayName: $0.displayName,
+                    bundleIdentifier: $0.bundleIdentifier.isEmpty ? nil : $0.bundleIdentifier,
+                    score: 0
+                )
+            }
+    }
+
     private func scanApplications() throws -> [URL] {
         let homeDirectory = fileManager.homeDirectoryForCurrentUser
         let roots = [

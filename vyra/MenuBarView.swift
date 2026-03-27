@@ -12,11 +12,13 @@ struct MenuBarView: View {
     let openPalette: () -> Void
     let revealMacroStorage: () -> Void
     let openSettings: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Button {
                 openPalette()
+                dismiss()
             } label: {
                 HStack {
                     Text("Open Vyra")
@@ -36,13 +38,9 @@ struct MenuBarView: View {
             Divider()
                 .padding(.vertical, 2)
 
-            themeSection
-
-            Divider()
-                .padding(.vertical, 2)
-
             Button {
                 revealMacroStorage()
+                dismiss()
             } label: {
                 HStack {
                     Text("Reveal Macro Store")
@@ -62,6 +60,7 @@ struct MenuBarView: View {
                 ForEach(viewModel.recentMacros) { macro in
                     Button {
                         viewModel.macroReplayer.replay(macro: macro)
+                        dismiss()
                     } label: {
                         HStack {
                             Text(macro.name)
@@ -82,6 +81,7 @@ struct MenuBarView: View {
 
             Button {
                 openSettings()
+                dismiss()
             } label: {
                 HStack {
                     Text("Settings")
@@ -119,6 +119,7 @@ struct MenuBarView: View {
                 if let macro = viewModel.stopMacroRecording() {
                     viewModel.saveMacro(macro)
                 }
+                dismiss()
             } label: {
                 HStack {
                     Circle()
@@ -135,6 +136,7 @@ struct MenuBarView: View {
 
             Button {
                 viewModel.macroRecorder.cancelRecording()
+                dismiss()
             } label: {
                 HStack {
                     Text("Cancel Recording")
@@ -148,6 +150,7 @@ struct MenuBarView: View {
             Button {
                 viewModel.startMacroRecording()
                 openPalette()
+                dismiss()
             } label: {
                 HStack {
                     Image(systemName: "record.circle")
@@ -161,59 +164,6 @@ struct MenuBarView: View {
         }
     }
 
-    @ViewBuilder
-    private var themeSection: some View {
-        Text("Themes")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .padding(.top, 2)
-
-        ForEach(viewModel.themeManager.profiles) { profile in
-            Button {
-                viewModel.themeManager.setCurrentProfile(profile)
-                viewModel.settingsStore.currentThemeProfileId = profile.id
-            } label: {
-                HStack {
-                    Circle()
-                        .fill(Color(
-                            red: profile.background.red,
-                            green: profile.background.green,
-                            blue: profile.background.blue
-                        ))
-                        .frame(width: 10, height: 10)
-                        .overlay(
-                            Circle()
-                                .stroke(.secondary, lineWidth: 0.5)
-                        )
-                    Text(profile.name)
-                    Spacer()
-                    if viewModel.themeManager.currentProfile?.id == profile.id {
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(Color.accentColor)
-                            .font(.caption)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(GhostButtonStyle())
-        }
-
-        if !viewModel.themeManager.installedConnectors.isEmpty {
-            Button {
-                Task { await viewModel.themeManager.applyTheme() }
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                    Text("Apply Theme")
-                    Spacer()
-                    Text("\(viewModel.themeManager.installedConnectors.count) apps")
-                        .foregroundStyle(.secondary)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(GhostButtonStyle())
-        }
-    }
 
     private func shortcutDisplayString(_ shortcut: MacroShortcut) -> String {
         var parts: [String] = []

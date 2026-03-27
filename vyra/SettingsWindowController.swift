@@ -11,7 +11,7 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     init(viewModel: CommandPaletteViewModel) {
-        let contentSize = NSSize(width: 520, height: 440)
+        let contentSize = NSSize(width: 760, height: 600)
         let hostingController = NSHostingController(rootView: SettingsView(viewModel: viewModel))
 
         let window = NSWindow(contentViewController: hostingController)
