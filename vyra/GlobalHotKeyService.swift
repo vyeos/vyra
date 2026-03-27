@@ -16,7 +16,7 @@ final class GlobalHotKeyService {
     private let hotKeyID = EventHotKeyID(signature: 0x56595241, id: 1)
 
     func registerDefaultShortcut() {
-        register(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey) | UInt32(shiftKey))
+        register(keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey))
     }
 
     func register(keyCode: UInt32, modifiers: UInt32) {

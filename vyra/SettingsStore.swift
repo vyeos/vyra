@@ -121,6 +121,7 @@ struct AppSettings: Codable {
     var navigationBindings: NavigationBindingsPreset = .macos
 
     var hotkeyAssignments: [String: KeyboardShortcut] = [:]
+    var hasCompletedOnboarding: Bool = false
 
     init() {}
 
@@ -148,6 +149,8 @@ struct AppSettings: Codable {
         navigationBindings = try container.decodeIfPresent(NavigationBindingsPreset.self, forKey: .navigationBindings) ?? .macos
 
         hotkeyAssignments = try container.decodeIfPresent([String: KeyboardShortcut].self, forKey: .hotkeyAssignments) ?? [:]
+        // Existing installs without the key: treat as true so they don't get prompted again.
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? true
     }
 }
 
@@ -231,6 +234,11 @@ final class SettingsStore: ObservableObject {
     var hotkeyAssignments: [String: KeyboardShortcut] {
         get { settings.hotkeyAssignments }
         set { objectWillChange.send(); settings.hotkeyAssignments = newValue; try? save() }
+    }
+
+    var hasCompletedOnboarding: Bool {
+        get { settings.hasCompletedOnboarding }
+        set { objectWillChange.send(); settings.hasCompletedOnboarding = newValue; try? save() }
     }
 
     func prepareStorage() throws {

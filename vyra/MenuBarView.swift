@@ -23,7 +23,7 @@ struct MenuBarView: View {
                 HStack {
                     Text("Open Vyra")
                     Spacer()
-                    Text("⌘⇧Space")
+                    Text("⌃Space")
                         .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())

@@ -40,7 +40,7 @@ final class CommandPaletteViewModel: ObservableObject {
 
     private let fileIndex = FileSearchIndex()
     private let applicationIndex = ApplicationSearchIndex()
-    private let windowActionService = WindowActionService()
+    let windowActionService = WindowActionService()
     private let macroStore = MacroStore()
     private let workspace = NSWorkspace.shared
     private var searchTask: Task<Void, Never>?
@@ -59,9 +59,22 @@ final class CommandPaletteViewModel: ObservableObject {
     }
 
     var detailText: String {
-        let base = "\(accessibilityStatusText) • Hotkey: ⌘⇧Space"
+        let base = "\(accessibilityStatusText) • Hotkey: ⌃Space"
         guard let lastIndexedAt else { return base }
         return "\(base) • Indexed \(lastIndexedAt.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    /// Check Accessibility status without prompting.
+    var isAccessibilityEnabled: Bool {
+        windowActionService.checkAccessibility(prompt: false)
+    }
+
+    /// Request Accessibility permission (shows system prompt) and return current status.
+    @discardableResult
+    func requestAccessibilityPermission() -> Bool {
+        let result = windowActionService.requestAccessibility()
+        accessibilityStatusText = windowActionService.accessibilityStatusText()
+        return result
     }
 
     func loadIfNeeded() async {

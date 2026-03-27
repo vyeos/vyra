@@ -17,6 +17,7 @@ final class AppModel {
     private let hotKeyService = GlobalHotKeyService()
     private lazy var paletteWindowController = CommandPaletteWindowController(viewModel: commandPaletteViewModel)
     private lazy var settingsWindowController = SettingsWindowController(viewModel: commandPaletteViewModel)
+    private lazy var onboardingWindowController = OnboardingWindowController(viewModel: commandPaletteViewModel)
     private var hasStarted = false
 
     private init() {
@@ -28,6 +29,13 @@ final class AppModel {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
+
+        // Load settings before checking onboarding.
+        try? commandPaletteViewModel.settingsStore.prepareStorage()
+
+        if !commandPaletteViewModel.settingsStore.hasCompletedOnboarding {
+            onboardingWindowController.showOnboarding()
+        }
 
         registerPaletteHotkeyFromSettings()
 
@@ -65,6 +73,8 @@ final class AppModel {
     func toggleCommandPalette() {
         start()
         paletteWindowController.togglePalette()
+        // Notify observers (e.g. onboarding page 4) that the palette was opened.
+        NotificationCenter.default.post(name: .vyraCommandPaletteDidOpen, object: nil)
     }
 
     func runWindowAction(_ action: WindowAction) {

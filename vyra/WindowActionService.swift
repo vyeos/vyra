@@ -201,7 +201,7 @@ enum WindowActionError: LocalizedError {
 @MainActor
 final class WindowActionService {
     func perform(_ action: WindowAction) throws {
-        guard isAccessibilityEnabled(prompt: true) else {
+        guard checkAccessibility(prompt: true) else {
             throw WindowActionError.accessibilityDenied
         }
 
@@ -213,18 +213,35 @@ final class WindowActionService {
     }
 
     func accessibilityStatusText() -> String {
-        isAccessibilityEnabled(prompt: false)
+        checkAccessibility(prompt: false)
             ? "Accessibility ready for window actions"
             : "Accessibility needed for window actions"
     }
 
-    private func isAccessibilityEnabled(prompt: Bool) -> Bool {
+    /// Check if Accessibility is enabled. If `prompt` is true, show the system dialog.
+    func checkAccessibility(prompt: Bool) -> Bool {
         guard prompt else {
             return AXIsProcessTrusted()
         }
 
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
+    }
+
+    /// Request Accessibility permission and open System Settings to the Accessibility pane.
+    @discardableResult
+    func requestAccessibility() -> Bool {
+        // Trigger the system prompt (only works once per app lifecycle).
+        let trusted = checkAccessibility(prompt: true)
+
+        if !trusted {
+            // Open System Settings directly to the Accessibility pane so the user can toggle it.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+
+        return trusted
     }
 
     private func focusedWindow() throws -> AXUIElement {
