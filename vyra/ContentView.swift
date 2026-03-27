@@ -25,11 +25,10 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             searchField
             resultsList
         }
-        .padding(0)
         .frame(width: 560, height: 420)
         .background(
             LinearGradient(
@@ -42,25 +41,17 @@ struct ContentView: View {
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isSearchFieldFocused = true
-            }
-        }
-        .task {
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            isSearchFieldFocused = true
-            await viewModel.loadIfNeeded()
-        }
     }
 
     private var searchField: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
+                .font(.title)
                 .foregroundStyle(.secondary)
 
             TextField("Search apps, files, folders, or window actions", text: $viewModel.query)
                 .textFieldStyle(.plain)
+                .font(.title)
                 .focused($isSearchFieldFocused)
                 .onSubmit {
                     viewModel.openTopResult()
@@ -82,6 +73,11 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             Divider()
         }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                isSearchFieldFocused = true
+            }
+        }
     }
 
     private var resultsList: some View {
@@ -90,8 +86,8 @@ struct ContentView: View {
                 if let errorMessage = viewModel.errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                 }
 
                 if viewModel.items.isEmpty {
@@ -106,7 +102,7 @@ struct ContentView: View {
                         Text("Window")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 12)
                             .padding(.top, 8)
                             .padding(.bottom, 4)
 
@@ -119,7 +115,7 @@ struct ContentView: View {
                         Text("Apps")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 12)
                             .padding(.top, 12)
                             .padding(.bottom, 4)
 
@@ -132,7 +128,7 @@ struct ContentView: View {
                         Text("Files")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 12)
                             .padding(.top, 12)
                             .padding(.bottom, 4)
 
@@ -142,7 +138,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .padding(.horizontal, 1)
         }
     }
 }

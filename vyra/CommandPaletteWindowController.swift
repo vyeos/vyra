@@ -8,6 +8,10 @@
 import AppKit
 import SwiftUI
 
+final class PaletteWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate {
     private var eventMonitor: Any?
@@ -18,7 +22,7 @@ final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate
                 NSApp.keyWindow?.orderOut(nil)
             }
         }))
-        let window = NSWindow(contentViewController: hostingController)
+        let window = PaletteWindow(contentViewController: hostingController)
 
         window.setContentSize(NSSize(width: 560, height: 420))
         window.styleMask = [.fullSizeContentView]
@@ -31,6 +35,7 @@ final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate
         window.center()
         window.backgroundColor = .clear
         window.hasShadow = false
+        window.acceptsMouseMovedEvents = true
 
         super.init(window: window)
         window.delegate = self
