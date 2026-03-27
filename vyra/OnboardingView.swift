@@ -114,11 +114,10 @@ struct OnboardingView: View {
     }
 
     private func finishOnboarding() {
-        guard canAdvance else { return }
         viewModel.settingsStore.hasCompletedOnboarding = true
         dismiss()
         // Also close the window directly
-        NSApp.keyWindow?.close()
+        NSApp.windows.first { $0.title == "Welcome to Vyra" }?.close()
     }
 
     // MARK: - Page 1: Intro
@@ -312,6 +311,7 @@ struct OnboardingView: View {
                 queue: .main
             ) { _ in
                 paletteWasOpened = true
+                finishOnboarding()
             }
         }
         .onDisappear {
