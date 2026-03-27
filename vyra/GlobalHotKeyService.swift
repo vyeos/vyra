@@ -24,8 +24,8 @@ final class GlobalHotKeyService {
         unregister()
 
         RegisterEventHotKey(
-            modifiers,
             keyCode,
+            modifiers,
             hotKeyID,
             GetEventDispatcherTarget(),
             0,
