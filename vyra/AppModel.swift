@@ -15,6 +15,7 @@ final class AppModel {
 
     private let hotKeyService = GlobalHotKeyService()
     private lazy var paletteWindowController = CommandPaletteWindowController(viewModel: commandPaletteViewModel)
+    private lazy var settingsWindowController = SettingsWindowController(viewModel: commandPaletteViewModel)
     private var hasStarted = false
 
     private init() {
@@ -49,7 +50,30 @@ final class AppModel {
         commandPaletteViewModel.executeWindowAction(action)
     }
 
+    func startMacroRecording() {
+        start()
+        commandPaletteViewModel.startMacroRecording()
+        showCommandPalette()
+    }
+
+    func stopMacroRecording() {
+        if let macro = commandPaletteViewModel.stopMacroRecording() {
+            commandPaletteViewModel.saveMacro(macro)
+        }
+    }
+
     func revealMacroStorage() {
         commandPaletteViewModel.revealMacroStorage()
+    }
+
+    func applyCurrentTheme() {
+        Task {
+            await commandPaletteViewModel.themeManager.applyTheme()
+        }
+    }
+
+    func showSettings() {
+        start()
+        settingsWindowController.showSettings()
     }
 }

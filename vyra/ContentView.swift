@@ -13,6 +13,26 @@ struct ContentView: View {
     @State private var selectedIndex: Int = 0
     let onClose: () -> Void
 
+    private var favorites: [CommandPaletteItem] {
+        viewModel.items.filter { if case .favorite = $0.kind { return true }; return false }
+    }
+
+    private var recents: [CommandPaletteItem] {
+        viewModel.items.filter { if case .recent = $0.kind { return true }; return false }
+    }
+
+    private var macros: [CommandPaletteItem] {
+        viewModel.items.filter { if case .macro = $0.kind { return true }; return false }
+    }
+
+    private var themeItems: [CommandPaletteItem] {
+        viewModel.items.filter {
+            if case .themeProfile = $0.kind { return true }
+            if case .themeAction = $0.kind { return true }
+            return false
+        }
+    }
+
     private var windowActions: [CommandPaletteItem] {
         viewModel.items.filter { if case .windowAction = $0.kind { return true }; return false }
     }
@@ -26,7 +46,14 @@ struct ContentView: View {
     }
 
     private var effectiveItems: [CommandPaletteItem] {
-        windowActions + applications + files
+        var all = favorites
+        all.append(contentsOf: recents)
+        all.append(contentsOf: macros)
+        all.append(contentsOf: themeItems)
+        all.append(contentsOf: windowActions)
+        all.append(contentsOf: applications)
+        all.append(contentsOf: files)
+        return all
     }
 
     var body: some View {
@@ -34,8 +61,9 @@ struct ContentView: View {
             DragHandle()
             searchField
             resultsList
+            statusBar
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 580, height: 480)
         .background(
             LinearGradient(
                 colors: [
@@ -88,21 +116,27 @@ struct ContentView: View {
 
     private var searchField: some View {
         HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: viewModel.macroRecorder.isRecording ? "record.circle.fill" : "magnifyingglass")
                 .font(.title)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(viewModel.macroRecorder.isRecording ? .red : .secondary)
 
-            TextField("Search apps, files, folders, or window actions", text: $viewModel.query)
-                .textFieldStyle(.plain)
-                .font(.title)
-                .focused($isSearchFieldFocused)
-                .onSubmit {
-                    viewModel.openTopResult()
-                    onClose()
-                }
-                .onExitCommand {
-                    onClose()
-                }
+            if viewModel.macroRecorder.isRecording {
+                Text("Recording macro... \(viewModel.macroRecorder.stepCount) steps")
+                    .font(.title)
+                    .foregroundStyle(.red)
+            } else {
+                TextField("Search apps, files, actions, macros, themes", text: $viewModel.query)
+                    .textFieldStyle(.plain)
+                    .font(.title)
+                    .focused($isSearchFieldFocused)
+                    .onSubmit {
+                        viewModel.openTopResult()
+                        onClose()
+                    }
+                    .onExitCommand {
+                        onClose()
+                    }
+            }
 
             Spacer()
 
@@ -143,64 +177,110 @@ struct ContentView: View {
                         )
                         .frame(maxWidth: .infinity, minHeight: 180)
                     } else {
-                        if !windowActions.isEmpty {
-                            Text("Window")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.top, 8)
-                                .padding(.bottom, 4)
-
-                            ForEach(Array(windowActions.enumerated()), id: \.element.id) { offset, item in
+                        if !favorites.isEmpty {
+                            sectionHeader("Pinned", icon: "pin.fill")
+                            ForEach(Array(favorites.enumerated()), id: \.element.id) { offset, item in
                                 CommandPaletteRow(
                                     item: item,
                                     isSelected: selectedIndex == offset,
+                                    isFavorite: true,
                                     onActivate: { viewModel.activate(item) },
+                                    onSecondaryAction: { viewModel.reveal(item) },
+                                    onToggleFavorite: { viewModel.toggleFavorite(item) },
                                     onClose: onClose
                                 )
                                 .id(offset)
                             }
                         }
 
+                        if !recents.isEmpty {
+                            let baseIndex = favorites.count
+                            sectionHeader("Recent", icon: "clock.arrow.circlepath")
+                            ForEach(Array(recents.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onSecondaryAction: nil,
+                                    onClose: onClose
+                                )
+                                .id(baseIndex + offset)
+                            }
+                        }
+
+                        if !macros.isEmpty {
+                            let baseIndex = favorites.count + recents.count
+                            sectionHeader("Macros", icon: "play.rectangle.fill")
+                            ForEach(Array(macros.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onClose: onClose
+                                )
+                                .id(baseIndex + offset)
+                            }
+                        }
+
+                        if !themeItems.isEmpty {
+                            let baseIndex = favorites.count + recents.count + macros.count
+                            sectionHeader("Themes", icon: "paintpalette.fill")
+                            ForEach(Array(themeItems.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onClose: onClose
+                                )
+                                .id(baseIndex + offset)
+                            }
+                        }
+
+                        if !windowActions.isEmpty {
+                            let baseIndex = favorites.count + recents.count + macros.count + themeItems.count
+                            sectionHeader("Window", icon: "macwindow")
+                            ForEach(Array(windowActions.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onClose: onClose
+                                )
+                                .id(baseIndex + offset)
+                            }
+                        }
+
                         if !applications.isEmpty {
-                            let baseIndex = windowActions.count
-
-                            Text("Apps")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.top, 12)
-                                .padding(.bottom, 4)
-
+                            let baseIndex = favorites.count + recents.count + macros.count + themeItems.count + windowActions.count
+                            sectionHeader("Apps", icon: "app.fill")
                             ForEach(Array(applications.enumerated()), id: \.element.id) { offset, item in
                                 CommandPaletteRow(
                                     item: item,
                                     isSelected: selectedIndex == baseIndex + offset,
+                                    isFavorite: viewModel.isFavorite(item),
                                     onActivate: { viewModel.activate(item) },
                                     onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil,
+                                    onToggleFavorite: { viewModel.toggleFavorite(item) },
                                     onClose: onClose
                                 )
+                                .id(baseIndex + offset)
                             }
                         }
 
                         if !files.isEmpty {
-                            let baseIndex = windowActions.count + applications.count
-
-                            Text("Files")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.top, 12)
-                                .padding(.bottom, 4)
-
+                            let baseIndex = favorites.count + recents.count + macros.count + themeItems.count + windowActions.count + applications.count
+                            sectionHeader("Files", icon: "doc.fill")
                             ForEach(Array(files.enumerated()), id: \.element.id) { offset, item in
                                 CommandPaletteRow(
                                     item: item,
                                     isSelected: selectedIndex == baseIndex + offset,
+                                    isFavorite: viewModel.isFavorite(item),
                                     onActivate: { viewModel.activate(item) },
                                     onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil,
+                                    onToggleFavorite: { viewModel.toggleFavorite(item) },
                                     onClose: onClose
                                 )
+                                .id(baseIndex + offset)
                             }
                         }
                     }
@@ -208,6 +288,50 @@ struct ContentView: View {
             }
             .background(ScrollViewConfigurator())
         }
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            if viewModel.macroRecorder.isRecording {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 6, height: 6)
+                Text("\(viewModel.macroRecorder.stepCount) steps recorded")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            } else {
+                Text(viewModel.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if let profile = viewModel.themeManager.currentProfile {
+                Label(profile.name, systemImage: "paintpalette.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 }
 
@@ -316,8 +440,10 @@ private class WindowDragView: NSView {
 private struct CommandPaletteRow: View {
     let item: CommandPaletteItem
     var isSelected: Bool = false
+    var isFavorite: Bool = false
     let onActivate: () -> Void
     var onSecondaryAction: (() -> Void)?
+    var onToggleFavorite: (() -> Void)?
     var onClose: (() -> Void)?
 
     @State private var isHovered = false
@@ -339,6 +465,20 @@ private struct CommandPaletteRow: View {
             }
 
             Spacer()
+
+            badgesView
+
+            if let onToggleFavorite {
+                Button {
+                    onToggleFavorite()
+                } label: {
+                    Image(systemName: isFavorite ? "pin.fill" : "pin")
+                        .font(.subheadline)
+                        .foregroundStyle(isFavorite ? .orange : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .padding(.trailing, 2)
+            }
 
             if let onSecondaryAction {
                 Button {
@@ -387,6 +527,22 @@ private struct CommandPaletteRow: View {
                 .frame(width: 24, height: 24)
                 .foregroundStyle(.primary)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    @ViewBuilder
+    private var badgesView: some View {
+        if !item.badges.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(item.badges, id: \.self) { badge in
+                    Text(badge)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 4))
+                }
+            }
         }
     }
 }

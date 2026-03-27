@@ -132,12 +132,11 @@ Result: user can replay this setup with one hotkey.
 
 ## Phase 2 - Usable MVP
 - Add favorites, recents, and key behavior settings
-- Add basic menubar quick actions
 - Ship macro record/replay for desktop and window actions
 - Add theme module with 2-3 connectors and quick switch
 
 ## Phase 3 - Workflow Expansion
-- Add richer window presets and shortcut chaining
+- Add richer window mangement and shortcut chaining
 - Add selected in-app macro actions (terminal/editor-first)
 - Expand theme connectors to 5+ apps
 

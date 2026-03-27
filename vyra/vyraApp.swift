@@ -20,9 +20,18 @@ struct vyraApp: App {
             MenuBarView(
                 viewModel: AppModel.shared.commandPaletteViewModel,
                 openPalette: { AppModel.shared.showCommandPalette() },
-                revealMacroStorage: { AppModel.shared.revealMacroStorage() }
+                revealMacroStorage: { AppModel.shared.revealMacroStorage() },
+                openSettings: { AppModel.shared.showSettings() }
             )
         }
         .menuBarExtraStyle(.window)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    AppModel.shared.showSettings()
+                }
+                .keyboardShortcut(",", modifiers: [.command])
+            }
+        }
     }
 }

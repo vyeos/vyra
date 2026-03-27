@@ -11,6 +11,7 @@ struct MenuBarView: View {
     @ObservedObject var viewModel: CommandPaletteViewModel
     let openPalette: () -> Void
     let revealMacroStorage: () -> Void
+    let openSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -26,6 +27,19 @@ struct MenuBarView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(GhostButtonStyle())
+
+            Divider()
+                .padding(.vertical, 2)
+
+            recordingSection
+
+            Divider()
+                .padding(.vertical, 2)
+
+            themeSection
+
+            Divider()
+                .padding(.vertical, 2)
 
             Button {
                 revealMacroStorage()
@@ -47,6 +61,7 @@ struct MenuBarView: View {
 
                 ForEach(viewModel.recentMacros) { macro in
                     Button {
+                        viewModel.macroReplayer.replay(macro: macro)
                     } label: {
                         HStack {
                             Text(macro.name)
@@ -62,11 +77,18 @@ struct MenuBarView: View {
                 }
             }
 
+            Divider()
+                .padding(.vertical, 2)
+
             Button {
+                openSettings()
             } label: {
                 HStack {
                     Text("Settings")
                     Spacer()
+                    Text("Key Behavior")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -84,9 +106,112 @@ struct MenuBarView: View {
             .buttonStyle(GhostButtonStyle())
         }
         .padding(8)
-        .frame(width: 280)
+        .frame(width: 300)
         .task {
             await viewModel.loadIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private var recordingSection: some View {
+        if viewModel.macroRecorder.isRecording {
+            Button {
+                if let macro = viewModel.stopMacroRecording() {
+                    viewModel.saveMacro(macro)
+                }
+            } label: {
+                HStack {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 8, height: 8)
+                    Text("Stop Recording")
+                    Spacer()
+                    Text("\(viewModel.macroRecorder.stepCount) steps")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GhostButtonStyle())
+
+            Button {
+                viewModel.macroRecorder.cancelRecording()
+            } label: {
+                HStack {
+                    Text("Cancel Recording")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GhostButtonStyle())
+        } else {
+            Button {
+                viewModel.startMacroRecording()
+                openPalette()
+            } label: {
+                HStack {
+                    Image(systemName: "record.circle")
+                        .foregroundStyle(.red)
+                    Text("Start Macro Recording")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GhostButtonStyle())
+        }
+    }
+
+    @ViewBuilder
+    private var themeSection: some View {
+        Text("Themes")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.top, 2)
+
+        ForEach(viewModel.themeManager.profiles) { profile in
+            Button {
+                viewModel.themeManager.setCurrentProfile(profile)
+                viewModel.settingsStore.currentThemeProfileId = profile.id
+            } label: {
+                HStack {
+                    Circle()
+                        .fill(Color(
+                            red: profile.background.red,
+                            green: profile.background.green,
+                            blue: profile.background.blue
+                        ))
+                        .frame(width: 10, height: 10)
+                        .overlay(
+                            Circle()
+                                .stroke(.secondary, lineWidth: 0.5)
+                        )
+                    Text(profile.name)
+                    Spacer()
+                    if viewModel.themeManager.currentProfile?.id == profile.id {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.accentColor)
+                            .font(.caption)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GhostButtonStyle())
+        }
+
+        if !viewModel.themeManager.installedConnectors.isEmpty {
+            Button {
+                Task { await viewModel.themeManager.applyTheme() }
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text("Apply Theme")
+                    Spacer()
+                    Text("\(viewModel.themeManager.installedConnectors.count) apps")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GhostButtonStyle())
         }
     }
 
@@ -165,7 +290,7 @@ struct MenuBarView: View {
 
 struct GhostButtonStyle: ButtonStyle {
     @State private var isHovered = false
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(.horizontal, 6)
