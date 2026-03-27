@@ -6,45 +6,18 @@
 //
 
 import SwiftUI
-//import SwiftData
+// import SwiftData
 
 @main
 struct vyraApp: App {
-//    var sharedModelContainer: ModelContainer = {
-//        let schema = Schema([
-//            Item.self,
-//        ])
-//        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-//
-//        do {
-//            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-//        } catch {
-//            fatalError("Could not create ModelContainer: \(error)")
-//        }
-//    }()
-    
     var body: some Scene {
         MenuBarExtra(
-            "Menubar Example",
-            systemImage: "globe.fill"
-        ){
+            "Vyra",
+            systemImage: "command.square"
+        ) {
             ContentView()
-//                .overlay(alignment: .topTrailing) {
-//                    Button(
-//                        "Quit", systemImage: "xmark.circle.fill"
-//                    ) {
-//                        NSApp.terminate(nil)
-//                    }
-//                    .labelStyle(.iconOnly)
-//                    .buttonStyle(.plain)
-//                    .padding(6)
-//                }
-                .frame(width: 300, height: 180)
+                .frame(width: 560, height: 520)
         }
         .menuBarExtraStyle(.window)
-//        WindowGroup {
-//            ContentView()
-//        }
-//        .modelContainer(sharedModelContainer)
     }
 }
