@@ -26,6 +26,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            DragHandle()
             searchField
             resultsList
         }
@@ -140,6 +141,61 @@ struct ContentView: View {
             }
         }
     }
+}
+
+private struct DragHandle: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3, id: \.self) { _ in
+                Circle()
+                    .fill(.tertiary)
+                    .frame(width: 4, height: 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 16)
+        .contentShape(Rectangle())
+        .overlay {
+            WindowDragArea()
+        }
+    }
+}
+
+private struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowDragView {
+        WindowDragView()
+    }
+
+    func updateNSView(_ nsView: WindowDragView, context: Context) {}
+}
+
+private class WindowDragView: NSView {
+    private var isDragging = false
+    private var initialLocation: NSPoint = .zero
+    private var initialWindowOrigin: NSPoint = .zero
+
+    override func mouseDown(with event: NSEvent) {
+        isDragging = true
+        initialLocation = NSEvent.mouseLocation
+        initialWindowOrigin = window?.frame.origin ?? .zero
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging, let window = window else { return }
+        let currentLocation = NSEvent.mouseLocation
+        let newOrigin = NSPoint(
+            x: initialWindowOrigin.x + (currentLocation.x - initialLocation.x),
+            y: initialWindowOrigin.y + (currentLocation.y - initialLocation.y)
+        )
+        window.setFrameOrigin(newOrigin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isDragging = false
+        NSCursor.pop()
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
 }
 
 private struct CommandPaletteRow: View {

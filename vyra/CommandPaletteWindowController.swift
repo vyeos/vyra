@@ -29,7 +29,7 @@ final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces]
         window.center()
