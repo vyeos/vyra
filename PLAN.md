@@ -10,6 +10,7 @@ Core product pillars:
 - app launcher
 - window management actions
 - global hotkeys and custom key behavior (Hyper key style)
+- record/replay macros for repeatable workflows
 - theme manager as a feature
 
 ## Problem Statement
@@ -27,6 +28,7 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 - One command surface to launch apps and run actions
 - One place to manage windows quickly with shortcuts
 - One system to configure global keys and custom key behavior
+- One macro recorder to automate repeated multi-app setup flows
 - One feature to sync themes across supported apps
 
 ## MVP Scope (v0.1)
@@ -48,16 +50,26 @@ Vyra solves this by acting as a single command and control layer for desktop wor
   - run window/actions
 - Basic custom key behavior mode (Hyper-like mapping)
 
-### 4) Theme Manager (Feature)
+### 4) Macro Recorder + Runner (Core Feature)
+- Start and stop macro recording from Vyra
+- Capture actionable events:
+  - app launches/focus changes
+  - Vyra window management actions
+  - supported in-app keystrokes and commands
+- Save macro with a name and replay via shortcut or command palette
+- Show replay step status and failures (for debugging and trust)
+
+### 5) Theme Manager (Feature)
 - Let user create/select a theme profile (base palette + variants)
 - Let user choose installed apps to connect
 - Apply selected theme to connected apps through per-app adapters
 - Show apply status (success/failure per app)
 
-### 5) Basic Menubar Presence
+### 6) Basic Menubar Presence
 - Menubar icon with:
   - quick launcher entry
   - common window actions
+  - start/stop macro recording
   - quick theme switch
   - open main app action
 
@@ -67,6 +79,7 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 - Deep todo/project management
 - Complex AI automation
 - Cross-device sync and cloud accounts
+- Full universal in-app keystroke capture for every app (MVP supports selected apps only)
 
 ## Suggested Connector Priority (Theme Feature)
 
@@ -85,6 +98,7 @@ Each connector should implement:
 
 - Command layer (core): launcher + actions + hotkeys
 - Window actions module: move/resize/snap primitives
+- Macro engine: event timeline, recorder, replayer, and step status
 - Theme layer (feature): theme profile model + connector adapters
 - UI layer: menubar + optional main window
 
@@ -93,20 +107,39 @@ Config updates should be:
 - reversible (backup before changes)
 - validated before write
 
+Macro execution should be:
+- deterministic (ordered step playback)
+- interruptible (stop macro safely)
+- resilient (retry/skip policy per step)
+
+## Example Macro Use Case
+
+Developer startup workspace:
+1. user starts macro recording
+2. open browser and tile left
+3. open terminal and tile right
+4. split terminal horizontally
+5. run `nvim` on top pane and local server command on bottom pane
+
+Result: user can replay this setup with one hotkey.
+
 ## Rollout Phases
 
 ## Phase 1 - Foundation
 - Build command palette + app launcher
 - Implement global shortcut registration
 - Implement initial window action primitives
+- Define macro step schema and persistent storage format
 
 ## Phase 2 - Usable MVP
 - Add favorites, recents, and key behavior settings
 - Add basic menubar quick actions
+- Ship macro record/replay for desktop and window actions
 - Add theme module with 2-3 connectors and quick switch
 
 ## Phase 3 - Workflow Expansion
 - Add richer window presets and shortcut chaining
+- Add selected in-app macro actions (terminal/editor-first)
 - Expand theme connectors to 5+ apps
 - Add starter analytics (only if core usage is stable)
 
@@ -114,6 +147,7 @@ Config updates should be:
 
 - App launch from command palette under 1 second median
 - Common window action completion under 2 seconds
+- Macro replay success rate above 90% for recorded supported steps
 - Theme apply success rate above 95% on supported connectors
 - Weekly active usage of launcher/hotkeys by early testers
 
@@ -123,7 +157,9 @@ Config updates should be:
 2. Build command palette with app launch action
 3. Implement 5-8 core window actions
 4. Add global shortcuts and key behavior settings
-5. Add menubar quick actions
-6. Implement theme connectors (start with 2-3 apps)
-7. Run internal dogfooding on real daily workflows
+5. Define macro event model and recording boundaries
+6. Implement macro record/replay for launcher + window actions
+7. Add menubar quick actions (including macro controls)
+8. Implement theme connectors (start with 2-3 apps)
+9. Run internal dogfooding on real daily workflows
 
