@@ -40,7 +40,7 @@ final class CommandPaletteViewModel: ObservableObject {
     private var hasLoaded = false
 
     var sectionTitle: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suggested commands" : "Matches"
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suggestions" : "Matches"
     }
 
     var statusText: String {

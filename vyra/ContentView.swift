@@ -10,16 +10,27 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var viewModel: CommandPaletteViewModel
     @FocusState private var isSearchFieldFocused: Bool
+    let onClose: () -> Void
+
+    private var windowActions: [CommandPaletteItem] {
+        viewModel.items.filter { if case .windowAction = $0.kind { return true }; return false }
+    }
+
+    private var applications: [CommandPaletteItem] {
+        viewModel.items.filter { if case .application = $0.kind { return true }; return false }
+    }
+
+    private var files: [CommandPaletteItem] {
+        viewModel.items.filter { if case .file = $0.kind { return true }; return false }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
+        VStack(spacing: 8) {
             searchField
             resultsList
-            footer
         }
-        .padding(16)
-        .frame(width: 560, height: 520)
+        .padding(0)
+        .frame(width: 560, height: 420)
         .background(
             LinearGradient(
                 colors: [
@@ -30,19 +41,16 @@ struct ContentView: View {
                 endPoint: .bottomTrailing
             )
         )
-        .task {
-            await viewModel.loadIfNeeded()
-            isSearchFieldFocused = true
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFieldFocused = true
+            }
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Vyra Command Palette")
-                .font(.title2.weight(.semibold))
-            Text("Launch apps, open files, run window actions, and prepare macros from one surface.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        .task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            isSearchFieldFocused = true
+            await viewModel.loadIfNeeded()
         }
     }
 
@@ -57,103 +65,102 @@ struct ContentView: View {
                 .onSubmit {
                     viewModel.openTopResult()
                 }
+                .onExitCommand {
+                    onClose()
+                }
+
+            Spacer()
 
             if viewModel.isLoading {
                 ProgressView()
                     .controlSize(.small)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.white.opacity(0.1))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.clear)
+        .overlay(alignment: .bottom) {
+            Divider()
         }
     }
 
     private var resultsList: some View {
-        List {
-            if let errorMessage = viewModel.errorMessage {
-                Section {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if let errorMessage = viewModel.errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                 }
-            }
 
-            if viewModel.items.isEmpty {
-                Section {
+                if viewModel.items.isEmpty {
                     ContentUnavailableView(
                         "No matching commands",
                         systemImage: "command.circle",
                         description: Text("Try another keyword or wait for indexing to finish.")
                     )
-                    .frame(maxWidth: .infinity, minHeight: 220)
-                    .listRowBackground(Color.clear)
-                }
-            } else {
-                Section(viewModel.sectionTitle) {
-                    ForEach(viewModel.items) { item in
-                        CommandPaletteRow(
-                            item: item,
-                            onActivate: { viewModel.activate(item) },
-                            onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil
-                        )
-                        .listRowInsets(EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                } else {
+                    if !windowActions.isEmpty {
+                        Text("Window")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+
+                        ForEach(windowActions) { item in
+                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) })
+                        }
+                    }
+
+                    if !applications.isEmpty {
+                        Text("Apps")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
+
+                        ForEach(applications) { item in
+                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil)
+                        }
+                    }
+
+                    if !files.isEmpty {
+                        Text("Files")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
+
+                        ForEach(files) { item in
+                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil)
+                        }
                     }
                 }
             }
+            .padding(.horizontal, 1)
         }
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
-    }
-
-    private var footer: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.statusText)
-                    .font(.footnote.weight(.medium))
-                Text(viewModel.detailText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-
-            Button("Quit", systemImage: "xmark.circle.fill") {
-                NSApp.terminate(nil)
-            }
-        }
-        .foregroundStyle(.secondary)
     }
 }
 
 private struct CommandPaletteRow: View {
     let item: CommandPaletteItem
     let onActivate: () -> Void
-    let onSecondaryAction: (() -> Void)?
+    var onSecondaryAction: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             icon
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(item.title)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    ForEach(item.badges, id: \.self) { badge in
-                        Text(badge)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
-                    }
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
 
                 Text(item.subtitle)
                     .font(.caption)
@@ -164,16 +171,20 @@ private struct CommandPaletteRow: View {
             Spacer()
 
             if let onSecondaryAction {
-                Button("Reveal", systemImage: "folder") {
+                Button {
                     onSecondaryAction()
+                } label: {
+                    Image(systemName: "folder")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .padding(.trailing, 4)
             }
         }
-        .padding(10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
         .onTapGesture(perform: onActivate)
     }
 
@@ -184,17 +195,17 @@ private struct CommandPaletteRow: View {
             Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 28, height: 28)
+                .frame(width: 24, height: 24)
         case .system(let systemName):
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 28, height: 28)
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 24, height: 24)
                 .foregroundStyle(.primary)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
         }
     }
 }
 
 #Preview {
-    ContentView(viewModel: CommandPaletteViewModel())
+    ContentView(viewModel: CommandPaletteViewModel(), onClose: {})
 }
