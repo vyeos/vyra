@@ -14,7 +14,9 @@ final class PaletteWindow: NSWindow {
 
 @MainActor
 final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate {
-    private var eventMonitor: Any?
+    private var globalEventMonitor: Any?
+    private var localEventMonitor: Any?
+    private var escapeKeyMonitor: Any?
 
     init(viewModel: CommandPaletteViewModel) {
         let hostingController = NSHostingController(rootView: ContentView(viewModel: viewModel, onClose: {
@@ -68,26 +70,55 @@ final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate
     func hidePalette() {
         guard let window else { return }
         window.orderOut(nil)
-        stopEventMonitor()
+        stopEventMonitors()
     }
 
     private func startEventMonitor() {
-        stopEventMonitor()
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+        stopEventMonitors()
+
+        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.hidePalette()
+        }
+
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self, let window = self.window else { return event }
+            if event.window != window {
+                self.hidePalette()
+            }
+            return event
+        }
+
+        escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 {
+                self?.hidePalette()
+                return nil
+            }
+            return event
         }
     }
 
-    private func stopEventMonitor() {
-        if let monitor = eventMonitor {
+    private func stopEventMonitors() {
+        if let monitor = globalEventMonitor {
             NSEvent.removeMonitor(monitor)
-            eventMonitor = nil
+            globalEventMonitor = nil
+        }
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEventMonitor = nil
+        }
+        if let monitor = escapeKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            escapeKeyMonitor = nil
         }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         hidePalette()
         return false
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        hidePalette()
     }
 
     nonisolated private func removeEventMonitor(_ monitor: Any?) {
@@ -97,6 +128,8 @@ final class CommandPaletteWindowController: NSWindowController, NSWindowDelegate
     }
 
     deinit {
-        removeEventMonitor(eventMonitor)
+        removeEventMonitor(globalEventMonitor)
+        removeEventMonitor(localEventMonitor)
+        removeEventMonitor(escapeKeyMonitor)
     }
 }

@@ -56,6 +56,7 @@ struct ContentView: View {
                 .focused($isSearchFieldFocused)
                 .onSubmit {
                     viewModel.openTopResult()
+                    onClose()
                 }
                 .onExitCommand {
                     onClose()
@@ -108,7 +109,7 @@ struct ContentView: View {
                             .padding(.bottom, 4)
 
                         ForEach(windowActions) { item in
-                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) })
+                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onClose: onClose)
                         }
                     }
 
@@ -202,6 +203,7 @@ private struct CommandPaletteRow: View {
     let item: CommandPaletteItem
     let onActivate: () -> Void
     var onSecondaryAction: (() -> Void)?
+    var onClose: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -236,7 +238,10 @@ private struct CommandPaletteRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture(perform: onActivate)
+        .onTapGesture {
+            onActivate()
+            onClose?()
+        }
     }
 
     @ViewBuilder
