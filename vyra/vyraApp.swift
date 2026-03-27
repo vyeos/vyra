@@ -20,7 +20,6 @@ struct vyraApp: App {
             MenuBarView(
                 viewModel: AppModel.shared.commandPaletteViewModel,
                 openPalette: { AppModel.shared.showCommandPalette() },
-                runWindowAction: { AppModel.shared.runWindowAction($0) },
                 revealMacroStorage: { AppModel.shared.revealMacroStorage() }
             )
         }

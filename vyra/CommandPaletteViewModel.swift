@@ -28,6 +28,7 @@ final class CommandPaletteViewModel: ObservableObject {
     @Published private(set) var lastIndexedAt: Date?
     @Published private(set) var errorMessage: String?
     @Published private(set) var macroStoragePath: String?
+    @Published private(set) var recentMacros: [MacroDefinition] = []
     @Published private(set) var accessibilityStatusText = ""
 
     private let fileIndex = FileSearchIndex()
@@ -128,6 +129,7 @@ final class CommandPaletteViewModel: ObservableObject {
             fileCount = await fileIndex.indexedCount()
             macroCount = library.macros.count
             macroStoragePath = try macroStore.storageURL().path
+            recentMacros = Array(library.macros.sorted { $0.updatedAt > $1.updatedAt }.prefix(3))
             lastIndexedAt = Date()
             errorMessage = nil
 
