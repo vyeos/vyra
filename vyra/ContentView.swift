@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var viewModel: CommandPaletteViewModel
     @FocusState private var isSearchFieldFocused: Bool
+    @State private var selectedIndex: Int = 0
     let onClose: () -> Void
 
     private var windowActions: [CommandPaletteItem] {
@@ -22,6 +23,10 @@ struct ContentView: View {
 
     private var files: [CommandPaletteItem] {
         viewModel.items.filter { if case .file = $0.kind { return true }; return false }
+    }
+
+    private var effectiveItems: [CommandPaletteItem] {
+        windowActions + applications + files
     }
 
     var body: some View {
@@ -42,6 +47,43 @@ struct ContentView: View {
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onKeyPress(.upArrow) {
+            moveSelection(by: -1)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            moveSelection(by: 1)
+            return .handled
+        }
+        .onKeyPress(keys: ["n"], phases: .down) { _ in
+            if NSEvent.modifierFlags.contains(.control) {
+                moveSelection(by: 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(keys: ["p"], phases: .down) { _ in
+            if NSEvent.modifierFlags.contains(.control) {
+                moveSelection(by: -1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.return) {
+            if let item = effectiveItems[safe: selectedIndex] {
+                viewModel.activate(item)
+                onClose()
+            }
+            return .handled
+        }
+        .onChange(of: viewModel.query) {
+            selectedIndex = 0
+        }
+    }
+
+    private func moveSelection(by offset: Int) {
+        guard !effectiveItems.isEmpty else { return }
+        selectedIndex = max(0, min(selectedIndex + offset, effectiveItems.count - 1))
     }
 
     private var searchField: some View {
@@ -83,64 +125,136 @@ struct ContentView: View {
     }
 
     private var resultsList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if let errorMessage = viewModel.errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                }
-
-                if viewModel.items.isEmpty {
-                    ContentUnavailableView(
-                        "No matching commands",
-                        systemImage: "command.circle",
-                        description: Text("Try another keyword or wait for indexing to finish.")
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 180)
-                } else {
-                    if !windowActions.isEmpty {
-                        Text("Window")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if let errorMessage = viewModel.errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
                             .padding(.horizontal, 12)
-                            .padding(.top, 8)
-                            .padding(.bottom, 4)
-
-                        ForEach(windowActions) { item in
-                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onClose: onClose)
-                        }
+                            .padding(.vertical, 6)
                     }
 
-                    if !applications.isEmpty {
-                        Text("Apps")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 12)
-                            .padding(.bottom, 4)
+                    if viewModel.items.isEmpty {
+                        ContentUnavailableView(
+                            "No matching commands",
+                            systemImage: "command.circle",
+                            description: Text("Try another keyword or wait for indexing to finish.")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                    } else {
+                        if !windowActions.isEmpty {
+                            Text("Window")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.top, 8)
+                                .padding(.bottom, 4)
 
-                        ForEach(applications) { item in
-                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil)
+                            ForEach(Array(windowActions.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onClose: onClose
+                                )
+                                .id(offset)
+                            }
                         }
-                    }
 
-                    if !files.isEmpty {
-                        Text("Files")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 12)
-                            .padding(.bottom, 4)
+                        if !applications.isEmpty {
+                            let baseIndex = windowActions.count
 
-                        ForEach(files) { item in
-                            CommandPaletteRow(item: item, onActivate: { viewModel.activate(item) }, onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil)
+                            Text("Apps")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.top, 12)
+                                .padding(.bottom, 4)
+
+                            ForEach(Array(applications.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil,
+                                    onClose: onClose
+                                )
+                            }
+                        }
+
+                        if !files.isEmpty {
+                            let baseIndex = windowActions.count + applications.count
+
+                            Text("Files")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.top, 12)
+                                .padding(.bottom, 4)
+
+                            ForEach(Array(files.enumerated()), id: \.element.id) { offset, item in
+                                CommandPaletteRow(
+                                    item: item,
+                                    isSelected: selectedIndex == baseIndex + offset,
+                                    onActivate: { viewModel.activate(item) },
+                                    onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil,
+                                    onClose: onClose
+                                )
+                            }
                         }
                     }
                 }
             }
+            .background(ScrollViewConfigurator())
         }
+    }
+}
+
+private struct ScrollViewConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = FixedScrollerView()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private class FixedScrollerView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureScrollView()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        configureScrollView()
+    }
+
+    private func configureScrollView() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let scrollView = self.findScrollView() {
+                scrollView.scrollerStyle = .legacy
+            }
+        }
+    }
+
+    private func findScrollView() -> NSScrollView? {
+        var view: NSView? = self.superview
+        while view != nil {
+            if let scrollView = view as? NSScrollView {
+                return scrollView
+            }
+            view = view?.superview
+        }
+        return nil
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
@@ -201,9 +315,12 @@ private class WindowDragView: NSView {
 
 private struct CommandPaletteRow: View {
     let item: CommandPaletteItem
+    var isSelected: Bool = false
     let onActivate: () -> Void
     var onSecondaryAction: (() -> Void)?
     var onClose: (() -> Void)?
+
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -237,7 +354,19 @@ private struct CommandPaletteRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.quaternary.opacity(0.8))
+            } else if isHovered {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.quaternary.opacity(0.3))
+            }
+        }
         .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
         .onTapGesture {
             onActivate()
             onClose?()
