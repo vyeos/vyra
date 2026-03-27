@@ -25,7 +25,7 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 
 ## Core Value Proposition
 
-- One command surface to launch apps and run actions
+- One command surface to launch apps, open files, and run actions
 - One place to manage windows quickly with shortcuts
 - One system to configure global keys and custom key behavior
 - One macro recorder to automate repeated multi-app setup flows
@@ -37,6 +37,8 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 - Global shortcut to open Vyra command palette
 - Search and launch installed apps quickly
 - Pin favorites and recents
+- Search and open files quickly (recent + indexed)
+- Pin frequently used files and folders
 
 ### 2) Window Management
 - Quick actions for move/resize/snap
@@ -46,7 +48,7 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 ### 3) Hotkeys + Key Behavior
 - Register global shortcuts for:
   - open Vyra
-  - launch favorite apps
+  - launch apps
   - run window/actions
 - Basic custom key behavior mode (Hyper-like mapping)
 
@@ -75,8 +77,6 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 
 ## Non-Goals for MVP
 
-- Full productivity analytics dashboard
-- Deep todo/project management
 - Complex AI automation
 - Cross-device sync and cloud accounts
 - Full universal in-app keystroke capture for every app (MVP supports selected apps only)
@@ -84,10 +84,8 @@ Vyra solves this by acting as a single command and control layer for desktop wor
 ## Suggested Connector Priority (Theme Feature)
 
 Start with apps that are both popular and theme-configurable:
-1. Terminal app (iTerm2 or Terminal-compatible path)
-2. VS Code
-3. One additional code editor/terminal
-4. One browser-like target (if technically feasible)
+1. Terminal app (iTerm2, Ghostty, Alacritty or Terminal-compatible path)
+2. VS Code, Zed
 
 Each connector should implement:
 - read current theme/config
@@ -100,7 +98,7 @@ Each connector should implement:
 - Window actions module: move/resize/snap primitives
 - Macro engine: event timeline, recorder, replayer, and step status
 - Theme layer (feature): theme profile model + connector adapters
-- UI layer: menubar + optional main window
+- UI layer: menubar + main window
 
 Config updates should be:
 - idempotent
@@ -127,6 +125,7 @@ Result: user can replay this setup with one hotkey.
 
 ## Phase 1 - Foundation
 - Build command palette + app launcher
+- Add file search/open support in command palette
 - Implement global shortcut registration
 - Implement initial window action primitives
 - Define macro step schema and persistent storage format
@@ -141,20 +140,19 @@ Result: user can replay this setup with one hotkey.
 - Add richer window presets and shortcut chaining
 - Add selected in-app macro actions (terminal/editor-first)
 - Expand theme connectors to 5+ apps
-- Add starter analytics (only if core usage is stable)
 
 ## Success Metrics
 
 - App launch from command palette under 1 second median
+- File open from command palette under 1.5 seconds median
 - Common window action completion under 2 seconds
 - Macro replay success rate above 90% for recorded supported steps
 - Theme apply success rate above 95% on supported connectors
-- Weekly active usage of launcher/hotkeys by early testers
 
 ## Immediate Next Tasks (Execution Checklist)
 
 1. Finalize v0.1 command surface and non-goals
-2. Build command palette with app launch action
+2. Build command palette with app launch + file open actions
 3. Implement 5-8 core window actions
 4. Add global shortcuts and key behavior settings
 5. Define macro event model and recording boundaries
