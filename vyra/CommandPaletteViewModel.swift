@@ -20,57 +20,150 @@ final class CommandPaletteViewModel: ObservableObject {
             }
         }
     }
-    @Published private(set) var results: [FileSearchResult] = []
+    @Published private(set) var items: [CommandPaletteItem] = []
     @Published private(set) var isLoading = false
-    @Published private(set) var indexedCount = 0
+    @Published private(set) var applicationCount = 0
+    @Published private(set) var fileCount = 0
+    @Published private(set) var macroCount = 0
     @Published private(set) var lastIndexedAt: Date?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var macroStoragePath: String?
+    @Published private(set) var accessibilityStatusText = ""
 
-    private let index = FileSearchIndex()
+    private let fileIndex = FileSearchIndex()
+    private let applicationIndex = ApplicationSearchIndex()
+    private let windowActionService = WindowActionService()
+    private let macroStore = MacroStore()
     private let workspace = NSWorkspace.shared
     private var searchTask: Task<Void, Never>?
+    private var hasLoaded = false
 
     var sectionTitle: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Recent and suggested files" : "Matching files"
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suggested commands" : "Matches"
     }
 
     var statusText: String {
         if isLoading {
-            return "Indexing files from Documents, Desktop, Downloads, and Projects..."
+            return "Indexing apps, files, shortcuts, and macro storage..."
         }
 
-        return indexedCount == 0 ? "No files indexed yet" : "\(indexedCount) items indexed"
+        return "\(applicationCount) apps • \(fileCount) files • \(macroCount) macros"
     }
 
-    func load() async {
-        isLoading = true
-        defer { isLoading = false }
+    var detailText: String {
+        let base = "\(accessibilityStatusText) • Hotkey: ⌘⇧Space"
+        guard let lastIndexedAt else { return base }
+        return "\(base) • Indexed \(lastIndexedAt.formatted(date: .abbreviated, time: .shortened))"
+    }
 
-        do {
-            try await index.rebuild()
-            indexedCount = await index.indexedCount()
-            lastIndexedAt = Date()
-            errorMessage = nil
+    func loadIfNeeded() async {
+        guard !hasLoaded else {
             await refreshResults()
-        } catch {
-            errorMessage = "Indexing failed: \(error.localizedDescription)"
+            return
         }
+
+        hasLoaded = true
+        await load()
     }
 
     func openTopResult() {
-        guard let topResult = results.first else { return }
-        open(topResult)
+        guard let topResult = items.first else { return }
+        activate(topResult)
     }
 
-    func open(_ result: FileSearchResult) {
-        workspace.open(result.url)
+    func activate(_ item: CommandPaletteItem) {
+        switch item.kind {
+        case .application(let application):
+            errorMessage = nil
+            workspace.open(application.url)
+        case .file(let file):
+            errorMessage = nil
+            workspace.open(file.url)
+        case .windowAction(let action):
+            executeWindowAction(action)
+        }
     }
 
-    func reveal(_ result: FileSearchResult) {
-        workspace.activateFileViewerSelecting([result.url])
+    func reveal(_ item: CommandPaletteItem) {
+        switch item.kind {
+        case .application(let application):
+            workspace.activateFileViewerSelecting([application.url])
+        case .file(let file):
+            workspace.activateFileViewerSelecting([file.url])
+        case .windowAction:
+            break
+        }
+    }
+
+    func executeWindowAction(_ action: WindowAction) {
+        do {
+            try windowActionService.perform(action)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        accessibilityStatusText = windowActionService.accessibilityStatusText()
+    }
+
+    func revealMacroStorage() {
+        guard let macroStoragePath else { return }
+        workspace.activateFileViewerSelecting([URL(fileURLWithPath: macroStoragePath)])
+    }
+
+    private func load() async {
+        isLoading = true
+        accessibilityStatusText = windowActionService.accessibilityStatusText()
+        defer { isLoading = false }
+
+        do {
+            let library = try macroStore.prepareStorage()
+
+            async let rebuildApplications: Void = applicationIndex.rebuild()
+            async let rebuildFiles: Void = fileIndex.rebuild()
+
+            _ = try await (rebuildApplications, rebuildFiles)
+
+            applicationCount = await applicationIndex.indexedCount()
+            fileCount = await fileIndex.indexedCount()
+            macroCount = library.macros.count
+            macroStoragePath = try macroStore.storageURL().path
+            lastIndexedAt = Date()
+            errorMessage = nil
+
+            await refreshResults()
+        } catch {
+            errorMessage = "Phase 1 setup failed: \(error.localizedDescription)"
+        }
     }
 
     private func refreshResults() async {
-        results = await index.search(query: query)
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        async let applications = applicationIndex.search(query: query)
+        async let files = fileIndex.search(query: query)
+
+        let actionItems = windowActionItems(matching: trimmedQuery)
+        let applicationItems = await applications.map {
+            CommandPaletteItem(kind: .application($0), score: $0.score)
+        }
+        let fileItems = await files.map {
+            CommandPaletteItem(kind: .file($0), score: $0.score)
+        }
+
+        items = (actionItems + applicationItems + fileItems)
+            .sorted(by: CommandPaletteItem.sort)
+            .prefix(30)
+            .map { $0 }
+    }
+
+    private func windowActionItems(matching query: String) -> [CommandPaletteItem] {
+        WindowAction.allCases.compactMap { action in
+            guard let score = action.matchScore(for: query) else {
+                return nil
+            }
+
+            return CommandPaletteItem(kind: .windowAction(action), score: score)
+        }
     }
 }

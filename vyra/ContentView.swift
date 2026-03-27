@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = CommandPaletteViewModel()
+    @ObservedObject var viewModel: CommandPaletteViewModel
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
@@ -31,7 +31,7 @@ struct ContentView: View {
             )
         )
         .task {
-            await viewModel.load()
+            await viewModel.loadIfNeeded()
             isSearchFieldFocused = true
         }
     }
@@ -40,7 +40,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Vyra Command Palette")
                 .font(.title2.weight(.semibold))
-            Text("Search recent and indexed files, then open them instantly.")
+            Text("Launch apps, open files, run window actions, and prepare macros from one surface.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -51,7 +51,7 @@ struct ContentView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search files, folders, or project names", text: $viewModel.query)
+            TextField("Search apps, files, folders, or window actions", text: $viewModel.query)
                 .textFieldStyle(.plain)
                 .focused($isSearchFieldFocused)
                 .onSubmit {
@@ -81,23 +81,23 @@ struct ContentView: View {
                 }
             }
 
-            if viewModel.results.isEmpty {
+            if viewModel.items.isEmpty {
                 Section {
                     ContentUnavailableView(
-                        "No matching files",
-                        systemImage: "doc.text.magnifyingglass",
-                        description: Text("Try a different keyword or wait for indexing to finish.")
+                        "No matching commands",
+                        systemImage: "command.circle",
+                        description: Text("Try another keyword or wait for indexing to finish.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 220)
                     .listRowBackground(Color.clear)
                 }
             } else {
                 Section(viewModel.sectionTitle) {
-                    ForEach(viewModel.results) { result in
-                        FileResultRow(
-                            result: result,
-                            onOpen: { viewModel.open(result) },
-                            onReveal: { viewModel.reveal(result) }
+                    ForEach(viewModel.items) { item in
+                        CommandPaletteRow(
+                            item: item,
+                            onActivate: { viewModel.activate(item) },
+                            onSecondaryAction: item.supportsReveal ? { viewModel.reveal(item) } : nil
                         )
                         .listRowInsets(EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                     }
@@ -113,11 +113,10 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewModel.statusText)
                     .font(.footnote.weight(.medium))
-                if let updatedAt = viewModel.lastIndexedAt {
-                    Text("Indexed \(updatedAt.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text(viewModel.detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
             Spacer()
@@ -130,36 +129,24 @@ struct ContentView: View {
     }
 }
 
-private struct FileResultRow: View {
-    let result: FileSearchResult
-    let onOpen: () -> Void
-    let onReveal: () -> Void
+private struct CommandPaletteRow: View {
+    let item: CommandPaletteItem
+    let onActivate: () -> Void
+    let onSecondaryAction: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(nsImage: result.icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 28, height: 28)
+            icon
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(result.displayName)
+                    Text(item.title)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    if result.isDirectory {
-                        Text("Folder")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
-                    }
-
-                    if result.source == .recent {
-                        Text("Recent")
+                    ForEach(item.badges, id: \.self) { badge in
+                        Text(badge)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
@@ -168,7 +155,7 @@ private struct FileResultRow: View {
                     }
                 }
 
-                Text(result.parentPath)
+                Text(item.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -176,19 +163,38 @@ private struct FileResultRow: View {
 
             Spacer()
 
-            Button("Reveal", systemImage: "folder") {
-                onReveal()
+            if let onSecondaryAction {
+                Button("Reveal", systemImage: "folder") {
+                    onSecondaryAction()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
         }
         .padding(10)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .onTapGesture(perform: onOpen)
+        .onTapGesture(perform: onActivate)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch item.icon {
+        case .file(let url):
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 28, height: 28)
+        case .system(let systemName):
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(.primary)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(viewModel: CommandPaletteViewModel())
 }

@@ -10,13 +10,19 @@ import SwiftUI
 
 @main
 struct vyraApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         MenuBarExtra(
             "Vyra",
             systemImage: "command.square"
         ) {
-            ContentView()
-                .frame(width: 560, height: 520)
+            MenuBarView(
+                viewModel: AppModel.shared.commandPaletteViewModel,
+                openPalette: { AppModel.shared.showCommandPalette() },
+                runWindowAction: { AppModel.shared.runWindowAction($0) },
+                revealMacroStorage: { AppModel.shared.revealMacroStorage() }
+            )
         }
         .menuBarExtraStyle(.window)
     }
