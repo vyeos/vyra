@@ -95,14 +95,14 @@ final class CommandPaletteViewModel: ObservableObject {
     func activate(_ item: CommandPaletteItem) {
         switch item.kind {
         case .application(let application):
-            errorMessage = nil
+            clearErrorMessage()
             workspace.open(application.url)
             favoritesStore.recordRecent(kind: .application, displayName: application.displayName, path: application.url.path)
             if macroRecorder.isRecording {
                 macroRecorder.recordAppLaunch(displayName: application.displayName, bundleIdentifier: application.bundleIdentifier, path: application.url.path)
             }
         case .file(let file):
-            errorMessage = nil
+            clearErrorMessage()
             workspace.open(file.url)
             favoritesStore.recordRecent(kind: .file, displayName: file.displayName, path: file.url.path)
             if macroRecorder.isRecording {
@@ -111,28 +111,28 @@ final class CommandPaletteViewModel: ObservableObject {
         case .windowAction(let action):
             executeWindowAction(action)
         case .appAction(let action):
-            errorMessage = nil
+            clearErrorMessage()
             switch action {
             case .settings:
                 AppModel.shared.showSettings()
             }
         case .favorite(let fav):
-            errorMessage = nil
+            clearErrorMessage()
             workspace.open(fav.url)
             favoritesStore.recordRecent(kind: fav.kind, displayName: fav.displayName, path: fav.path)
         case .recent(let recent):
-            errorMessage = nil
+            clearErrorMessage()
             workspace.open(recent.url)
             favoritesStore.recordRecent(kind: recent.kind, displayName: recent.displayName, path: recent.path)
         case .macro(let macro):
-            errorMessage = nil
+            clearErrorMessage()
             macroReplayer.replay(macro: macro)
         case .themeProfile(let profile):
-            errorMessage = nil
+            clearErrorMessage()
             themeManager.setCurrentProfile(profile)
             settingsStore.currentThemeProfileId = profile.id
         case .themeAction:
-            errorMessage = nil
+            clearErrorMessage()
             Task { await themeManager.applyTheme() }
         }
     }
@@ -199,7 +199,7 @@ final class CommandPaletteViewModel: ObservableObject {
     func executeWindowAction(_ action: WindowAction) {
         do {
             try windowActionService.perform(action)
-            errorMessage = nil
+            clearErrorMessage()
             if macroRecorder.isRecording {
                 macroRecorder.recordWindowAction(action)
             }
@@ -222,7 +222,16 @@ final class CommandPaletteViewModel: ObservableObject {
         saveMacro(macro)
         return macro
     }
+    
+    private func clearErrorMessage() {
+        guard errorMessage != nil else { return }
 
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.errorMessage != nil else { return }
+            self.errorMessage = nil
+        }
+    }
+    
     func saveMacro(_ macro: MacroDefinition) {
         do {
             var library = try macroStore.loadLibrary()
